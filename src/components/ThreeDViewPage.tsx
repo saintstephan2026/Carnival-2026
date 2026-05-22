@@ -422,9 +422,8 @@ export function ThreeDViewPage({ teamId, onBack }: ThreeDViewPageProps) {
                        style={{ width: `${Math.min(100, Math.max(0, progress))}%`, backgroundColor: team.color }}
                      />
                   </div>
-                  <div className="flex justify-between text-[10px] text-white/40 mt-1.5 font-mono">
-                     <span>{currentScore} PTS</span>
-                     <span>Target: {eventTargetScore} PTS</span>
+                  <div className="flex justify-center text-[10px] text-white/40 mt-1.5 font-mono">
+                     <span>Score: <b className="text-white font-bold">{currentScore}</b> PTS</span>
                   </div>
                </div>
             </div>
@@ -499,9 +498,8 @@ export function ThreeDViewPage({ teamId, onBack }: ThreeDViewPageProps) {
                     style={{ width: `${Math.min(100, Math.max(0, progress))}%`, backgroundColor: team.color }}
                   />
                 </div>
-                <div className="flex justify-between items-center text-[11px] text-slate-400 font-mono">
+                <div className="flex justify-center items-center text-[11px] text-slate-400 font-mono">
                   <span>Score: <b className="text-white text-sm">{currentScore}</b> PTS</span>
-                  <span>Target: {eventTargetScore} PTS</span>
                 </div>
               </div>
             </div>

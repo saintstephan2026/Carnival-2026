@@ -44,11 +44,14 @@ interface AppState {
   games: Game[];
   players: Record<string, Player>;
   eventTargetScore: number;
+  adminPin: string;
   days: Record<string, Day>;
   activeDayId: string | null;
   supabaseLoaded: boolean;
+  dbNotification: { message: string; type: 'success' | 'info' | 'error' } | null;
   
   loadSupabaseData: () => Promise<void>;
+  clearDbNotification: () => void;
   addDay: (name?: string, date?: string) => string;
   deleteDay: (dayId: string) => void;
   setActiveDayId: (dayId: string | null) => void;
@@ -72,8 +75,10 @@ interface AppState {
 
 export const useStore = create<AppState>((set) => ({
   eventTargetScore: 500, // Fixed target for building progress 
+  adminPin: '1234',
   activeDayId: 'default-day',
   supabaseLoaded: false,
+  dbNotification: null,
   days: {
     'default-day': {
       id: 'default-day',
@@ -114,6 +119,7 @@ export const useStore = create<AppState>((set) => ({
         teams: data.teams,
         players: data.players,
         eventTargetScore: data.eventTargetScore,
+        adminPin: data.adminPin || '1234',
         supabaseLoaded: true,
         // Pick activeDayId if any exists, else default-day
         activeDayId: Object.keys(data.days)[0] || 'default-day'
@@ -123,9 +129,19 @@ export const useStore = create<AppState>((set) => ({
     }
   },
 
+  clearDbNotification: () => set({ dbNotification: null }),
+
   setEventTargetScore: (score) => {
-    set({ eventTargetScore: score });
-    supabaseSync.saveSetting('event_target_score', score.toString());
+    set({ 
+      eventTargetScore: score,
+      dbNotification: { message: `Event target score set to ${score} in the Database!`, type: 'success' }
+    });
+    setTimeout(() => {
+      useStore.getState().clearDbNotification();
+    }, 4500);
+    supabaseSync.saveSetting('event_target_score', score.toString()).catch(err => {
+      set({ dbNotification: { message: `DB Error saving target score: ${err.message || err}`, type: 'error' } });
+    });
   },
 
   setTeamCode: (teamId, code) => set((state) => {
@@ -133,12 +149,18 @@ export const useStore = create<AppState>((set) => ({
       ...state.teams[teamId],
       code,
     };
-    supabaseSync.saveTeam(updatedTeam.id, updatedTeam.nameAr, updatedTeam.emojis, updatedTeam.color, updatedTeam.code);
+    supabaseSync.saveTeam(updatedTeam.id, updatedTeam.nameAr, updatedTeam.emojis, updatedTeam.color, updatedTeam.code).catch(err => {
+      set({ dbNotification: { message: `DB Error updating team code: ${err.message || err}`, type: 'error' } });
+    });
+    setTimeout(() => {
+      useStore.getState().clearDbNotification();
+    }, 4500);
     return {
       teams: {
         ...state.teams,
         [teamId]: updatedTeam
-      }
+      },
+      dbNotification: { message: `Team "${updatedTeam.nameAr}" access code updated successfully in the Database!`, type: 'success' }
     };
   }),
   
@@ -153,24 +175,38 @@ export const useStore = create<AppState>((set) => ({
         ...state.days,
         [id]: { id, name: finalName, date: dateStr }
       },
-      activeDayId: id
+      activeDayId: id,
+      dbNotification: { message: `Day "${finalName}" saved successfully in the Database!`, type: 'success' }
     }));
 
-    supabaseSync.saveDay(id, finalName, dateStr);
+    setTimeout(() => {
+      useStore.getState().clearDbNotification();
+    }, 4500);
+
+    supabaseSync.saveDay(id, finalName, dateStr).catch(err => {
+      set({ dbNotification: { message: `DB Error saving day: ${err.message || err}`, type: 'error' } });
+    });
     return id;
   },
 
   deleteDay: (dayId) => set((state) => {
     const newDays = { ...state.days };
+    const dayName = newDays[dayId]?.name || 'Day';
     delete newDays[dayId];
     const activeId = state.activeDayId === dayId ? (Object.keys(newDays)[0] || null) : state.activeDayId;
     
-    supabaseSync.deleteDay(dayId);
+    supabaseSync.deleteDay(dayId).catch(err => {
+      set({ dbNotification: { message: `DB Error deleting day: ${err.message || err}`, type: 'error' } });
+    });
+    setTimeout(() => {
+      useStore.getState().clearDbNotification();
+    }, 4500);
     
     return {
       days: newDays,
       activeDayId: activeId,
-      games: state.games.filter(g => g.dayId !== dayId)
+      games: state.games.filter(g => g.dayId !== dayId),
+      dbNotification: { message: `"${dayName}" and its games completely deleted from the Database!`, type: 'success' }
     };
   }),
 
@@ -180,47 +216,78 @@ export const useStore = create<AppState>((set) => ({
     const dId = dayId || state.activeDayId || 'default-day';
     const newGame = { id: Date.now().toString(), name, maxPoints, subGames: [], isTeamScoring, isMvpScoring, dayId: dId };
     
-    supabaseSync.saveGame(newGame.id, newGame.name, newGame.maxPoints, newGame.isTeamScoring, newGame.isMvpScoring, newGame.dayId);
-    
+    supabaseSync.saveGame(newGame.id, newGame.name, newGame.maxPoints, newGame.isTeamScoring, newGame.isMvpScoring, newGame.dayId).catch(err => {
+      set({ dbNotification: { message: `DB Error saving game: ${err.message || err}`, type: 'error' } });
+    });
+    setTimeout(() => {
+      useStore.getState().clearDbNotification();
+    }, 4500);
     return {
-      games: [...state.games, newGame]
+      games: [...state.games, newGame],
+      dbNotification: { message: `Game "${name}" saved successfully in the Database!`, type: 'success' }
     };
   }),
 
   deleteGame: (gameId) => set((state) => {
-    supabaseSync.deleteGame(gameId);
+    const game = state.games.find(g => g.id === gameId);
+    const gameName = game ? game.name : 'Game';
+    supabaseSync.deleteGame(gameId).catch(err => {
+      set({ dbNotification: { message: `DB Error deleting game: ${err.message || err}`, type: 'error' } });
+    });
+    setTimeout(() => {
+      useStore.getState().clearDbNotification();
+    }, 4500);
     return {
-      games: state.games.filter(g => g.id !== gameId)
+      games: state.games.filter(g => g.id !== gameId),
+      dbNotification: { message: `Game "${gameName}" deleted successfully from the Database!`, type: 'success' }
     };
   }),
 
   addSubGame: (gameId, name, maxPoints) => set((state) => {
     const subGameId = Date.now().toString();
-    supabaseSync.saveSubGame(subGameId, gameId, name, maxPoints);
-    
+    supabaseSync.saveSubGame(subGameId, gameId, name, maxPoints).catch(err => {
+      set({ dbNotification: { message: `DB Error saving sub-game: ${err.message || err}`, type: 'error' } });
+    });
+    setTimeout(() => {
+      useStore.getState().clearDbNotification();
+    }, 4500);
     return {
       games: state.games.map(g => g.id === gameId ? {
         ...g,
         subGames: [...g.subGames, { id: subGameId, name, maxPoints }]
-      } : g)
+      } : g),
+      dbNotification: { message: `Sub-game "${name}" saved successfully in the Database!`, type: 'success' }
     };
   }),
 
   deleteSubGame: (gameId, subGameId) => set((state) => {
-    supabaseSync.deleteSubGame(subGameId);
+    const game = state.games.find(g => g.id === gameId);
+    const sgName = game?.subGames.find(sg => sg.id === subGameId)?.name || 'Sub-game';
+    supabaseSync.deleteSubGame(subGameId).catch(err => {
+      set({ dbNotification: { message: `DB Error deleting sub-game: ${err.message || err}`, type: 'error' } });
+    });
+    setTimeout(() => {
+      useStore.getState().clearDbNotification();
+    }, 4500);
     return {
       games: state.games.map(g => g.id === gameId ? {
         ...g,
         subGames: g.subGames.filter(sg => sg.id !== subGameId)
-      } : g)
+      } : g),
+      dbNotification: { message: `Sub-game "${sgName}" deleted from the Database!`, type: 'success' }
     };
   }),
 
   editGame: (gameId, name, maxPoints, isTeamScoring, isMvpScoring) => set((state) => {
     const game = state.games.find(g => g.id === gameId);
     if (game) {
-      supabaseSync.saveGame(gameId, name, maxPoints, isTeamScoring, isMvpScoring, game.dayId);
+      supabaseSync.saveGame(gameId, name, maxPoints, isTeamScoring, isMvpScoring, game.dayId).catch(err => {
+        set({ dbNotification: { message: `DB Error updating game: ${err.message || err}`, type: 'error' } });
+      });
     }
+    setTimeout(() => {
+      useStore.getState().clearDbNotification();
+    }, 4500);
     return {
       games: state.games.map(g => g.id === gameId ? {
         ...g,
@@ -228,12 +295,18 @@ export const useStore = create<AppState>((set) => ({
         maxPoints,
         isTeamScoring,
         isMvpScoring
-      } : g)
+      } : g),
+      dbNotification: { message: `Game "${name}" details updated in the Database!`, type: 'success' }
     };
   }),
 
   editSubGame: (gameId, subGameId, name, maxPoints) => set((state) => {
-    supabaseSync.saveSubGame(subGameId, gameId, name, maxPoints);
+    supabaseSync.saveSubGame(subGameId, gameId, name, maxPoints).catch(err => {
+      set({ dbNotification: { message: `DB Error updating sub-game: ${err.message || err}`, type: 'error' } });
+    });
+    setTimeout(() => {
+      useStore.getState().clearDbNotification();
+    }, 4500);
     return {
       games: state.games.map(g => g.id === gameId ? {
         ...g,
@@ -242,12 +315,20 @@ export const useStore = create<AppState>((set) => ({
           name,
           maxPoints
         } : sg)
-      } : g)
+      } : g),
+      dbNotification: { message: `Sub-game "${name}" updated in the Database!`, type: 'success' }
     };
   }),
 
   updateScore: (teamId, gameId, score) => set((state) => {
-    supabaseSync.saveTeamScore(teamId, gameId, score);
+    supabaseSync.saveTeamScore(teamId, gameId, score).catch(err => {
+      set({ dbNotification: { message: `DB Error saving team score: ${err.message || err}`, type: 'error' } });
+    });
+    const teamName = state.teams[teamId]?.nameAr || 'Team';
+    const gameName = state.games.find(g => g.id === gameId)?.name || 'Game';
+    setTimeout(() => {
+      useStore.getState().clearDbNotification();
+    }, 4500);
     return {
       teams: {
         ...state.teams,
@@ -258,30 +339,53 @@ export const useStore = create<AppState>((set) => ({
             [gameId]: score,
           }
         }
-      }
+      },
+      dbNotification: { message: `Score for ${teamName} in "${gameName}" saved successfully in the Database!`, type: 'success' }
     };
   }),
 
   addPlayer: (name, teamId) => set((state) => {
     const id = Date.now().toString();
-    supabaseSync.savePlayer(id, name, teamId);
+    supabaseSync.savePlayer(id, name, teamId).catch(err => {
+      set({ dbNotification: { message: `DB Error registering player: ${err.message || err}`, type: 'error' } });
+    });
+    const teamName = state.teams[teamId]?.nameAr || 'Team';
+    setTimeout(() => {
+      useStore.getState().clearDbNotification();
+    }, 4500);
     return {
       players: {
         ...state.players,
         [id]: { id, name, teamId, scores: {} }
-      }
+      },
+      dbNotification: { message: `Player "${name}" registered for ${teamName} and saved in the Database!`, type: 'success' }
     };
   }),
 
   deletePlayer: (playerId) => set((state) => {
-    supabaseSync.deletePlayer(playerId);
+    const playerName = state.players[playerId]?.name || 'Player';
+    supabaseSync.deletePlayer(playerId).catch(err => {
+      set({ dbNotification: { message: `DB Error deleting player: ${err.message || err}`, type: 'error' } });
+    });
     const newPlayers = { ...state.players };
     delete newPlayers[playerId];
-    return { players: newPlayers };
+    setTimeout(() => {
+      useStore.getState().clearDbNotification();
+    }, 4500);
+    return { 
+      players: newPlayers,
+      dbNotification: { message: `Player "${playerName}" removed from the Database!`, type: 'success' }
+    };
   }),
 
   updatePlayerScore: (playerId, targetId, score) => set((state) => {
-    supabaseSync.savePlayerScore(playerId, targetId, score);
+    supabaseSync.savePlayerScore(playerId, targetId, score).catch(err => {
+      set({ dbNotification: { message: `DB Error updating player score: ${err.message || err}`, type: 'error' } });
+    });
+    const playerName = state.players[playerId]?.name || 'Player';
+    setTimeout(() => {
+      useStore.getState().clearDbNotification();
+    }, 4500);
     return {
       players: {
         ...state.players,
@@ -292,7 +396,8 @@ export const useStore = create<AppState>((set) => ({
             [targetId]: score
           }
         }
-      }
+      },
+      dbNotification: { message: `MVP score for "${playerName}" updated in the Database!`, type: 'success' }
     };
   })
 }));

@@ -58,15 +58,19 @@ export const supabaseSync = {
         .select('*');
       if (playerScoresError) throw playerScoresError;
 
-      // Fetch Settings (Target score)
+      // Fetch Settings (Target score & Admin PIN)
       const { data: settingsData, error: settingsError } = await supabase
         .from('settings')
         .select('*');
       
       let targetScore = 500;
+      let adminPin = '1234';
       if (!settingsError && settingsData) {
         const row = settingsData.find(s => s.key === 'event_target_score');
         if (row) targetScore = parseInt(row.value, 10) || 500;
+
+        const pinRow = settingsData.find(s => s.key === 'admin_pin');
+        if (pinRow) adminPin = pinRow.value || '1234';
       }
 
       // Transform raw base DB objects to frontend app structure
@@ -151,6 +155,7 @@ export const supabaseSync = {
         teams: teamsRecord,
         players: playersRecord,
         eventTargetScore: targetScore,
+        adminPin: adminPin,
       };
 
     } catch (e) {
@@ -162,25 +167,29 @@ export const supabaseSync = {
   // Save/Upsert Day to Supabase
   async saveDay(id: string, name: string, date: string) {
     try {
-      await supabase.from('days').upsert({ id, name, date });
+      const { error } = await supabase.from('days').upsert({ id, name, date });
+      if (error) throw error;
     } catch (e) {
       console.error('Supabase Error writing day:', e);
+      throw e;
     }
   },
 
   // Delete Day
   async deleteDay(id: string) {
     try {
-      await supabase.from('days').delete().eq('id', id);
+      const { error } = await supabase.from('days').delete().eq('id', id);
+      if (error) throw error;
     } catch (e) {
       console.error('Supabase Error deleting day:', e);
+      throw e;
     }
   },
 
   // Save/Upsert Game to Supabase
   async saveGame(id: string, name: string, maxPoints: number, isTeamScoring: boolean, isMvpScoring: boolean, dayId?: string) {
     try {
-      await supabase.from('games').upsert({
+      const { error } = await supabase.from('games').upsert({
         id,
         name,
         max_points: maxPoints,
@@ -188,112 +197,132 @@ export const supabaseSync = {
         is_mvp_scoring: isMvpScoring,
         day_id: dayId || null
       });
+      if (error) throw error;
     } catch (e) {
       console.error('Supabase Error writing game:', e);
+      throw e;
     }
   },
 
   // Delete Game
   async deleteGame(id: string) {
     try {
-      await supabase.from('games').delete().eq('id', id);
+      const { error } = await supabase.from('games').delete().eq('id', id);
+      if (error) throw error;
     } catch (e) {
       console.error('Supabase Error deleting game:', e);
+      throw e;
     }
   },
 
   // Save/Upsert SubGame
   async saveSubGame(id: string, gameId: string, name: string, maxPoints: number) {
     try {
-      await supabase.from('sub_games').upsert({
+      const { error } = await supabase.from('sub_games').upsert({
         id,
         game_id: gameId,
         name,
         max_points: maxPoints
       });
+      if (error) throw error;
     } catch (e) {
       console.error('Supabase Error writing sub_game:', e);
+      throw e;
     }
   },
 
   // Delete SubGame
   async deleteSubGame(id: string) {
     try {
-      await supabase.from('sub_games').delete().eq('id', id);
+      const { error } = await supabase.from('sub_games').delete().eq('id', id);
+      if (error) throw error;
     } catch (e) {
       console.error('Supabase Error deleting sub_game:', e);
+      throw e;
     }
   },
 
   // Upsert Team Info
   async saveTeam(id: string, nameAr: string, emojis: string, color: string, code: string) {
     try {
-      await supabase.from('teams').upsert({
+      const { error } = await supabase.from('teams').upsert({
         id,
         name_ar: nameAr,
         emojis,
         color,
         code
       });
+      if (error) throw error;
     } catch (e) {
       console.error('Supabase Error writing team:', e);
+      throw e;
     }
   },
 
   // Upsert Team Score
   async saveTeamScore(teamId: string, scoreId: string, score: number) {
     try {
-      await supabase.from('team_scores').upsert({
+      const { error } = await supabase.from('team_scores').upsert({
         team_id: teamId,
         score_id: scoreId,
         score
       });
+      if (error) throw error;
     } catch (e) {
       console.error('Supabase Error writing team score:', e);
+      throw e;
     }
   },
 
   // Save/Upsert Player
   async savePlayer(id: string, name: string, teamId: string) {
     try {
-      await supabase.from('players').upsert({
+      const { error } = await supabase.from('players').upsert({
         id,
         name,
         team_id: teamId
       });
+      if (error) throw error;
     } catch (e) {
       console.error('Supabase Error writing player:', e);
+      throw e;
     }
   },
 
   // Delete Player
   async deletePlayer(id: string) {
     try {
-      await supabase.from('players').delete().eq('id', id);
+      const { error } = await supabase.from('players').delete().eq('id', id);
+      if (error) throw error;
     } catch (e) {
       console.error('Supabase Error deleting player:', e);
+      throw e;
     }
   },
 
   // Save/Upsert Player Score
   async savePlayerScore(playerId: string, targetId: string, score: number) {
     try {
-      await supabase.from('player_scores').upsert({
+      const { error } = await supabase.from('player_scores').upsert({
         player_id: playerId,
         target_id: targetId,
         score
       });
+      if (error) throw error;
     } catch (e) {
       console.error('Supabase Error writing player score:', e);
+      throw e;
     }
   },
 
   // Save global settings
   async saveSetting(key: string, value: string) {
     try {
-      await supabase.from('settings').upsert({ key, value });
+      const { error } = await supabase.from('settings').upsert({ key, value }, { onConflict: 'key' });
+      if (error) throw error;
     } catch (e) {
       console.error('Supabase Error updating setting:', e);
+      throw e;
     }
   }
 };

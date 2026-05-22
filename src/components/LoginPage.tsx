@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useStore } from '../store';
 
 interface LoginPageProps {
   onLoginAsAdmin: () => void;
@@ -6,16 +7,17 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLoginAsAdmin, onLoginAsViewer }: LoginPageProps) {
+  const adminPin = useStore((state) => state.adminPin) || '1234';
   const [showPin, setShowPin] = useState(false);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
 
   const handleAdminSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin === '1234') { // Simple hardcoded pin for demo
+    if (pin === adminPin) {
       onLoginAsAdmin();
     } else {
-      setError('Incorrect PIN (Hint: 1234)');
+      setError(adminPin === '1234' ? 'Incorrect PIN (Hint: 1234)' : 'Incorrect PIN');
     }
   };
 

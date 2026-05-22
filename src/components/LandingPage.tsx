@@ -10,10 +10,12 @@ export function LandingPage({ onSelectTeam, onBack }: LandingPageProps) {
   const teams = useStore((state) => state.teams);
   const games = useStore((state) => state.games);
   const eventTargetScore = useStore((state) => state.eventTargetScore);
+  const loadSupabaseData = useStore((state) => state.loadSupabaseData);
 
   const [selectedTeamForCode, setSelectedTeamForCode] = useState<string | null>(null);
   const [enteredCode, setEnteredCode] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const targetTeam = selectedTeamForCode ? teams[selectedTeamForCode] : null;
 
@@ -23,11 +25,31 @@ export function LandingPage({ onSelectTeam, onBack }: LandingPageProps) {
     setCodeError('');
   };
 
-  const handleCodeSubmit = (e: React.FormEvent) => {
+  const handleCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetTeam || !selectedTeamForCode) return;
 
-    if (enteredCode === targetTeam.code) {
+    setIsVerifying(true);
+    setCodeError('');
+
+    try {
+      // Fetch latest states from database to support dynamically changed codes on the fly
+      await loadSupabaseData();
+    } catch (err) {
+      console.warn('Failed to load latest state from Supabase, checking local cache.', err);
+    }
+
+    const freshestTeams = useStore.getState().teams;
+    const freshestTargetTeam = freshestTeams[selectedTeamForCode];
+
+    setIsVerifying(false);
+
+    if (!freshestTargetTeam) {
+      setCodeError('Team not found');
+      return;
+    }
+
+    if (enteredCode === freshestTargetTeam.code) {
       onSelectTeam(selectedTeamForCode);
       setSelectedTeamForCode(null);
     } else {
@@ -95,12 +117,13 @@ export function LandingPage({ onSelectTeam, onBack }: LandingPageProps) {
                 type="password"
                 maxLength={8}
                 value={enteredCode}
+                disabled={isVerifying}
                 onChange={(e) => {
                   setEnteredCode(e.target.value);
                   setCodeError('');
                 }}
                 placeholder="Enter Access Code"
-                className="w-full px-4 py-3 text-center text-lg border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition bg-slate-50 font-mono tracking-widest"
+                className="w-full px-4 py-3 text-center text-lg border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition bg-slate-50 font-mono tracking-widest disabled:opacity-50"
                 autoFocus
               />
 
@@ -111,16 +134,25 @@ export function LandingPage({ onSelectTeam, onBack }: LandingPageProps) {
               <div className="flex gap-3 w-full mt-2">
                 <button
                   type="button"
+                  disabled={isVerifying}
                   onClick={() => setSelectedTeamForCode(null)}
-                  className="flex-1 px-4 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-200 transition cursor-pointer"
+                  className="flex-1 px-4 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-200 transition cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-3 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800 transition cursor-pointer shadow-md"
+                  disabled={isVerifying}
+                  className="flex-1 px-4 py-3 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800 transition cursor-pointer shadow-md disabled:opacity-75 flex items-center justify-center gap-2"
                 >
-                  Unlock Team
+                  {isVerifying ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Verifying...</span>
+                    </>
+                  ) : (
+                    'Unlock Team'
+                  )}
                 </button>
               </div>
             </form>

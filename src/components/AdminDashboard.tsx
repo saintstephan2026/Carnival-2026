@@ -179,6 +179,13 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
   // Draft ratings scores
   const [draftScores, setDraftScores] = useState<Record<string, number>>({});
 
+  // Local state for Global Target input editing
+  const [localTargetScore, setLocalTargetScore] = useState<string>(eventTargetScore.toString());
+
+  useEffect(() => {
+    setLocalTargetScore(eventTargetScore.toString());
+  }, [eventTargetScore]);
+
   // Confirm Modal state controller
   const [confirmProps, setConfirmProps] = useState<{
     isOpen: boolean;
@@ -372,20 +379,33 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
            
            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Global Target:</label>
-             <input 
-               type="number" 
-               min="1"
-               value={eventTargetScore} 
-               onChange={(e) => {
-                 const val = Number(e.target.value) || 1;
-                 triggerConfirm(
-                   "Update Target Score",
-                   `Are you sure you want to update the overall project target score to ${val} points?`,
-                   () => setEventTargetScore(val)
-                 );
-               }} 
-               className="w-24 bg-slate-50 border border-slate-200 p-2 rounded-lg text-center focus:outline-none focus:border-slate-400 font-bold text-slate-800" 
-             />
+             <div className="flex items-center gap-2">
+               <input 
+                 type="number" 
+                 min="1"
+                 value={localTargetScore} 
+                 onChange={(e) => setLocalTargetScore(e.target.value)} 
+                 className="w-24 bg-slate-50 border border-slate-200 p-2 rounded-lg text-center focus:outline-none focus:border-slate-400 font-bold text-slate-800" 
+               />
+               <button
+                 type="button"
+                 onClick={() => {
+                   const val = Number(localTargetScore) || 1;
+                   triggerConfirm(
+                     "Update Target Score",
+                     `Are you sure you want to update the overall project target score to ${val} points?`,
+                     () => {
+                       setEventTargetScore(val);
+                     }
+                   );
+                 }}
+                 disabled={localTargetScore === eventTargetScore.toString()}
+                 className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed font-sans"
+               >
+                 <Check size={14} />
+                 <span>Save</span>
+               </button>
+             </div>
            </div>
         </div>
 
@@ -621,9 +641,9 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                                          )}
                                        </div>
                                      </div>
-                                     <div className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-                                       Max Points: {displayMax}
-                                       {game.subGames.length > 0 && <span className="text-indigo-500 ml-2 font-semibold">(Automatically Calculated from {game.subGames.length} sub-games)</span>}
+                                     <div className="text-[11px] font-bold uppercase tracking-widest mt-1 text-slate-400">
+                                       <span className="text-blue-600">Max Points: {game.maxPoints}</span>
+                                       {game.subGames.length > 0 && <><span className="text-slate-300 ml-2 mr-2">|</span><span className="text-rose-600 font-extrabold">Remaining Points: <span className="text-rose-600 font-black text-sm">{game.maxPoints - subGamesTotal}</span></span></>}
                                      </div>
                                    </div>
                                    <div className="flex flex-wrap gap-2">
@@ -711,7 +731,7 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                                            ) : (
                                              <>
                                                <span className="text-sm font-semibold text-slate-700">
-                                                 {sg.name} <span className="text-slate-400 ml-2 font-normal">(Max: {sg.maxPoints})</span>
+                                                 {sg.name} <span className="text-orange-500 ml-2 font-bold">(Max: {sg.maxPoints})</span>
                                                </span>
                                                 <div className="flex items-center gap-2">
                                                   <button 
@@ -1155,181 +1175,396 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
             </div>
 
             {Object.values(players).length > 0 && (
-              <div className="grid gap-6">
-                {Object.values(players).map(player => {
-                  const team = teams[player.teamId];
-                  const totalScore = calculatePlayerScore(player);
-                  const filteredMvpGames = games.filter(g => g.isMvpScoring !== false);
-                  
-                  return (
-                    <div key={player.id} className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-200 flex flex-col md:flex-row gap-8 items-start hover:shadow-md transition duration-200 animate-in fade-in duration-100">
-                      <div className="md:w-1/3 flex flex-col border-b md:border-b-0 md:border-r border-slate-100 pb-6 md:pb-0 md:pr-8 md:min-h-[160px] h-full justify-between">
-                        <div className="flex justify-between items-start mb-4">
-                          <div>
-                            <h3 className="text-xl font-bold text-slate-900">{player.name}</h3>
-                            <span className="inline-block mt-1 text-xs font-semibold px-2.5 py-1 rounded-full border" style={{ borderColor: `${team.color}40`, backgroundColor: `${team.color}15`, color: team.color }}>
-                              {team.nameAr}
-                            </span>
-                          </div>
-                          <button onClick={() => handleDeletePlayerClick(player.id, player.name)} className="text-xs font-bold text-red-500 hover:bg-red-50 px-2 py-1 rounded cursor-pointer transition">Delete</button>
-                        </div>
-                        <div className="mt-auto pt-4 flex items-baseline gap-2">
-                          <span className="text-3xl font-extrabold text-amber-500">{totalScore}</span>
-                          <span className="text-[10px] font-bold text-slate-405 uppercase tracking-widest">Total MVP Points</span>
-                        </div>
-                      </div>
-                      
-                      <div className="md:w-2/3 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        
-                        {/* Bonus MVP Points card */}
-                        {(() => {
-                          const bonusKey = `player-${player.id}-bonus`;
-                          const savedBonus = player.scores['bonus'] || 0;
-                          const currentBonus = bonusKey in draftScores ? draftScores[bonusKey] : savedBonus;
-                          const isDirty = currentBonus !== savedBonus;
+              <div className="space-y-12">
+                {Object.values(teams).map(team => {
+                  const teamPlayers = Object.values(players).filter(p => p.teamId === team.id);
+                  if (teamPlayers.length === 0) return null;
 
+                  return (
+                    <div key={team.id} className="space-y-4">
+                      {/* Team Header/Divider */}
+                      <div className="flex items-center gap-3 px-2 py-1 select-none">
+                        <span className="text-2xl">{team.emojis}</span>
+                        <h3 className="text-lg font-bold text-slate-800 font-sansArabic">{team.nameAr}</h3>
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-full border border-slate-200" style={{ borderColor: `${team.color}30`, backgroundColor: `${team.color}10`, color: team.color }}>
+                          {teamPlayers.length} {teamPlayers.length === 1 ? 'Player' : 'Players'}
+                        </span>
+                        <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent" />
+                      </div>
+
+                      <div className="grid gap-6">
+                        {teamPlayers.map(player => {
+                          const totalScore = calculatePlayerScore(player);
+                          const filteredMvpGames = games.filter(g => g.isMvpScoring !== false);
+                          
                           return (
-                            <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-100 flex flex-col justify-between min-h-[110px]">
-                              <div className="flex justify-between items-center mb-1">
-                                 <span className="text-xs font-bold text-amber-900 flex items-center gap-1">
-                                   <Award size={14} /> Bonus MVP Points
-                                 </span>
-                                 <div className="flex items-center gap-1.5">
-                                   <AnimatedScoreInput
-                                     value={currentBonus}
-                                     max={100}
-                                     onChange={(val) => setDraftScores(prev => ({ ...prev, [bonusKey]: val }))}
-                                     className="w-12 border-amber-200 text-amber-900"
-                                     activeColor="amber"
-                                   />
-                                   
-                                   {isDirty && (
-                                     <div className="flex gap-1 animate-in zoom-in-95 font-sans">
-                                       <button
-                                         type="button"
-                                         onClick={() => {
-                                           triggerConfirm(
-                                             "Save Bonus Score",
-                                             `Are you sure you want to award ${currentBonus} bonus MVP points to player "${player.name}"?`,
-                                             () => {
-                                               updatePlayerScore(player.id, 'bonus', currentBonus);
-                                               setDraftScores(prev => {
-                                                 const copy = { ...prev };
-                                                 delete copy[bonusKey];
-                                                 return copy;
-                                               });
-                                             }
-                                           );
-                                         }}
-                                         className="p-1 px-2 text-[9px] font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700 transition"
-                                       >
-                                         Save
-                                       </button>
-                                       <button
-                                         type="button"
-                                         onClick={() => {
-                                           setDraftScores(prev => {
-                                             const copy = { ...prev };
-                                             delete copy[bonusKey];
-                                             return copy;
-                                           });
-                                         }}
-                                         className="p-1 bg-white text-slate-500 rounded hover:bg-slate-100 transition"
-                                       >
-                                         <Undo size={10} />
-                                       </button>
-                                     </div>
-                                   )}
-                                 </div>
+                            <div key={player.id} className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-200 flex flex-col md:flex-row gap-8 items-start hover:shadow-md transition duration-200 animate-in fade-in duration-100">
+                              <div className="md:w-1/3 flex flex-col border-b md:border-b-0 md:border-r border-slate-100 pb-6 md:pb-0 md:pr-8 md:min-h-[160px] h-full justify-between">
+                                <div className="flex justify-between items-start mb-4">
+                                  <div>
+                                    <h3 className="text-xl font-bold text-slate-900">{player.name}</h3>
+                                    <span className="inline-block mt-1 text-xs font-semibold px-2.5 py-1 rounded-full border" style={{ borderColor: `${team.color}40`, backgroundColor: `${team.color}15`, color: team.color }}>
+                                      {team.nameAr}
+                                    </span>
+                                  </div>
+                                  <button onClick={() => handleDeletePlayerClick(player.id, player.name)} className="text-xs font-bold text-red-500 hover:bg-red-50 px-2 py-1 rounded cursor-pointer transition">Delete</button>
+                                </div>
+                                <div className="mt-auto pt-4 flex items-baseline gap-2">
+                                  <span className="text-3xl font-extrabold text-amber-500">{totalScore}</span>
+                                  <span className="text-[10px] font-bold text-slate-405 uppercase tracking-widest">Total MVP Points</span>
+                                </div>
                               </div>
-                              <input 
-                                type="range" min="0" max="100" 
-                                value={currentBonus} 
-                                onChange={(e) => setDraftScores(prev => ({ ...prev, [bonusKey]: parseInt(e.target.value, 10) }))}
-                                className="w-full h-1 appearance-none cursor-pointer bg-amber-200 mt-2 rounded-lg"
-                              />
+                              
+                              <div className="md:w-2/3 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                
+                                {/* Bonus MVP Points card */}
+                                {(() => {
+                                  const bonusKey = `player-${player.id}-bonus`;
+                                  const savedBonus = player.scores['bonus'] || 0;
+                                  const currentBonus = bonusKey in draftScores ? draftScores[bonusKey] : savedBonus;
+                                  const isDirty = currentBonus !== savedBonus;
+        
+                                  return (
+                                    <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-100 flex flex-col justify-between min-h-[110px]">
+                                      <div className="flex justify-between items-center mb-1">
+                                         <span className="text-xs font-bold text-amber-900 flex items-center gap-1">
+                                           <Award size={14} /> Bonus MVP Points
+                                         </span>
+                                         <div className="flex items-center gap-1.5">
+                                           <AnimatedScoreInput
+                                             value={currentBonus}
+                                             max={100}
+                                             onChange={(val) => setDraftScores(prev => ({ ...prev, [bonusKey]: val }))}
+                                             className="w-12 border-amber-200 text-amber-900"
+                                             activeColor="amber"
+                                           />
+                                           
+                                           {isDirty && (
+                                             <div className="flex gap-1 animate-in zoom-in-95 font-sans">
+                                               <button
+                                                 type="button"
+                                                 onClick={() => {
+                                                   triggerConfirm(
+                                                     "Save Bonus Score",
+                                                     `Are you sure you want to award ${currentBonus} bonus MVP points to player "${player.name}"?`,
+                                                     () => {
+                                                       updatePlayerScore(player.id, 'bonus', currentBonus);
+                                                       setDraftScores(prev => {
+                                                         const copy = { ...prev };
+                                                         delete copy[bonusKey];
+                                                         return copy;
+                                                       });
+                                                     }
+                                                   );
+                                                 }}
+                                                 className="p-1 px-2 text-[9px] font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700 transition"
+                                               >
+                                                 Save
+                                               </button>
+                                               <button
+                                                 type="button"
+                                                 onClick={() => {
+                                                   setDraftScores(prev => {
+                                                     const copy = { ...prev };
+                                                     delete copy[bonusKey];
+                                                     return copy;
+                                                   });
+                                                 }}
+                                                 className="p-1 bg-white text-slate-500 rounded hover:bg-slate-100 transition"
+                                               >
+                                                 <Undo size={10} />
+                                               </button>
+                                             </div>
+                                           )}
+                                         </div>
+                                      </div>
+                                      <input 
+                                        type="range" min="0" max="100" 
+                                        value={currentBonus} 
+                                        onChange={(e) => setDraftScores(prev => ({ ...prev, [bonusKey]: parseInt(e.target.value, 10) }))}
+                                        className="w-full h-1 appearance-none cursor-pointer bg-amber-200 mt-2 rounded-lg"
+                                      />
+                                    </div>
+                                  );
+                                })()}
+                                
+                                {/* Regular game MVP inputs */}
+                                {filteredMvpGames.length === 0 ? (
+                                  <div className="bg-slate-50 p-4 rounded-xl text-center text-slate-400 text-xs italic border border-dashed border-slate-200 flex items-center justify-center min-h-[110px]">
+                                    No games designated for MVP scoring.
+                                  </div>
+                                ) : (
+                                  filteredMvpGames.map(g => {
+                                    const mvpGameKey = `player-${player.id}-${g.id}`;
+                                    const savedMvpVal = player.scores[g.id] || 0;
+                                    const currentMvpVal = mvpGameKey in draftScores ? draftScores[mvpGameKey] : savedMvpVal;
+                                    const isDirty = currentMvpVal !== savedMvpVal;
+        
+                                    return (
+                                       <div key={g.id} className="bg-slate-50/70 p-4 rounded-xl border border-slate-100 flex flex-col justify-between min-h-[110px]">
+                                         <div className="flex justify-between items-center mb-1 font-sans">
+                                            <span className="text-xs font-semibold text-slate-700 truncate mr-2 animate-in" title={g.name}>{g.name}</span>
+                                            <div className="flex items-center gap-1.5">
+                                              <AnimatedScoreInput
+                                                value={currentMvpVal}
+                                                max={g.maxPoints}
+                                                onChange={(val) => setDraftScores(prev => ({ ...prev, [mvpGameKey]: val }))}
+                                                className="w-12"
+                                                activeColor="amber"
+                                              />
+        
+                                              {isDirty && (
+                                                <div className="flex gap-1 animate-in zoom-in-95">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      triggerConfirm(
+                                                        "Save Player Challenge Score",
+                                                        `Are you sure you want to record ${currentMvpVal} MVP points for player "${player.name}" in game "${g.name}"?`,
+                                                        () => {
+                                                          updatePlayerScore(player.id, g.id, currentMvpVal);
+                                                          setDraftScores(prev => {
+                                                            const copy = { ...prev };
+                                                            delete copy[mvpGameKey];
+                                                            return copy;
+                                                          });
+                                                        }
+                                                      );
+                                                    }}
+                                                    className="p-1 px-2 text-[9px] font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700 transition"
+                                                  >
+                                                    Save
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      setDraftScores(prev => {
+                                                        const copy = { ...prev };
+                                                        delete copy[mvpGameKey];
+                                                        return copy;
+                                                      });
+                                                    }}
+                                                    className="p-1 bg-white text-slate-550 rounded hover:bg-slate-100 transition"
+                                                  >
+                                                    <Undo size={10} />
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+                                         </div>
+                                         <input 
+                                           type="range" min="0" max={g.maxPoints} 
+                                           value={currentMvpVal} 
+                                           onChange={(e) => setDraftScores(prev => ({ ...prev, [mvpGameKey]: parseInt(e.target.value, 10) }))}
+                                           className="w-full h-1 appearance-none cursor-pointer bg-slate-200 mt-2 rounded-lg"
+                                         />
+                                       </div>
+                                    );
+                                  })
+                                )}
+                              </div>
                             </div>
                           );
-                        })()}
-                        
-                        {/* Regular game MVP inputs */}
-                        {filteredMvpGames.length === 0 ? (
-                          <div className="bg-slate-50 p-4 rounded-xl text-center text-slate-400 text-xs italic border border-dashed border-slate-200 flex items-center justify-center min-h-[110px]">
-                            No games designated for MVP scoring.
-                          </div>
-                        ) : (
-                          filteredMvpGames.map(g => {
-                            const mvpGameKey = `player-${player.id}-${g.id}`;
-                            const savedMvpVal = player.scores[g.id] || 0;
-                            const currentMvpVal = mvpGameKey in draftScores ? draftScores[mvpGameKey] : savedMvpVal;
-                            const isDirty = currentMvpVal !== savedMvpVal;
-
-                            return (
-                               <div key={g.id} className="bg-slate-50/70 p-4 rounded-xl border border-slate-100 flex flex-col justify-between min-h-[110px]">
-                                 <div className="flex justify-between items-center mb-1 font-sans">
-                                    <span className="text-xs font-semibold text-slate-700 truncate mr-2 animate-in" title={g.name}>{g.name}</span>
-                                    <div className="flex items-center gap-1.5">
-                                      <AnimatedScoreInput
-                                        value={currentMvpVal}
-                                        max={g.maxPoints}
-                                        onChange={(val) => setDraftScores(prev => ({ ...prev, [mvpGameKey]: val }))}
-                                        className="w-12"
-                                        activeColor="amber"
-                                      />
-
-                                      {isDirty && (
-                                        <div className="flex gap-1 animate-in zoom-in-95">
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              triggerConfirm(
-                                                "Save Player Challenge Score",
-                                                `Are you sure you want to record ${currentMvpVal} MVP points for player "${player.name}" in game "${g.name}"?`,
-                                                () => {
-                                                  updatePlayerScore(player.id, g.id, currentMvpVal);
-                                                  setDraftScores(prev => {
-                                                    const copy = { ...prev };
-                                                    delete copy[mvpGameKey];
-                                                    return copy;
-                                                  });
-                                                }
-                                              );
-                                            }}
-                                            className="p-1 px-2 text-[9px] font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700 transition"
-                                          >
-                                            Save
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setDraftScores(prev => {
-                                                const copy = { ...prev };
-                                                delete copy[mvpGameKey];
-                                                return copy;
-                                              });
-                                            }}
-                                            className="p-1 bg-white text-slate-550 rounded hover:bg-slate-100 transition"
-                                          >
-                                            <Undo size={10} />
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                 </div>
-                                 <input 
-                                   type="range" min="0" max={g.maxPoints} 
-                                   value={currentMvpVal} 
-                                   onChange={(e) => setDraftScores(prev => ({ ...prev, [mvpGameKey]: parseInt(e.target.value, 10) }))}
-                                   className="w-full h-1 appearance-none cursor-pointer bg-slate-200 mt-2 rounded-lg"
-                                 />
-                               </div>
-                            );
-                          })
-                        )}
+                        })}
                       </div>
                     </div>
                   );
                 })}
+
+                {/* Unassigned/fallback group if any players with invalid or deleted teamIds exist */}
+                {(() => {
+                  const unassignedPlayers = Object.values(players).filter(p => !p.teamId || !teams[p.teamId]);
+                  if (unassignedPlayers.length === 0) return null;
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 px-2 py-1 select-none">
+                        <span className="text-2xl">👥</span>
+                        <h3 className="text-lg font-bold text-slate-800">Unassigned Players</h3>
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-full border border-slate-200 bg-slate-100 text-slate-600">
+                          {unassignedPlayers.length}
+                        </span>
+                        <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent" />
+                      </div>
+
+                      <div className="grid gap-6">
+                        {unassignedPlayers.map(player => {
+                          const totalScore = calculatePlayerScore(player);
+                          const filteredMvpGames = games.filter(g => g.isMvpScoring !== false);
+                          
+                          return (
+                            <div key={player.id} className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-200 flex flex-col md:flex-row gap-8 items-start hover:shadow-md transition duration-200 animate-in fade-in duration-100">
+                              <div className="md:w-1/3 flex flex-col border-b md:border-b-0 md:border-r border-slate-100 pb-6 md:pb-0 md:pr-8 md:min-h-[160px] h-full justify-between">
+                                <div className="flex justify-between items-start mb-4">
+                                  <div>
+                                    <h3 className="text-xl font-bold text-slate-900">{player.name}</h3>
+                                    <span className="inline-block mt-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                                      No Team
+                                    </span>
+                                  </div>
+                                  <button onClick={() => handleDeletePlayerClick(player.id, player.name)} className="text-xs font-bold text-red-500 hover:bg-red-50 px-2 py-1 rounded cursor-pointer transition">Delete</button>
+                                </div>
+                                <div className="mt-auto pt-4 flex items-baseline gap-2">
+                                  <span className="text-3xl font-extrabold text-amber-500">{totalScore}</span>
+                                  <span className="text-[10px] font-bold text-slate-405 uppercase tracking-widest">Total MVP Points</span>
+                                </div>
+                              </div>
+                              
+                              <div className="md:w-2/3 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                
+                                {/* Bonus MVP Points card */}
+                                {(() => {
+                                  const bonusKey = `player-${player.id}-bonus`;
+                                  const savedBonus = player.scores['bonus'] || 0;
+                                  const currentBonus = bonusKey in draftScores ? draftScores[bonusKey] : savedBonus;
+                                  const isDirty = currentBonus !== savedBonus;
+        
+                                  return (
+                                    <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-100 flex flex-col justify-between min-h-[110px]">
+                                      <div className="flex justify-between items-center mb-1">
+                                         <span className="text-xs font-bold text-amber-900 flex items-center gap-1">
+                                           <Award size={14} /> Bonus MVP Points
+                                         </span>
+                                         <div className="flex items-center gap-1.5">
+                                           <AnimatedScoreInput
+                                             value={currentBonus}
+                                             max={100}
+                                             onChange={(val) => setDraftScores(prev => ({ ...prev, [bonusKey]: val }))}
+                                             className="w-12 border-amber-200 text-amber-900"
+                                             activeColor="amber"
+                                           />
+                                           
+                                           {isDirty && (
+                                             <div className="flex gap-1 animate-in zoom-in-95 font-sans">
+                                               <button
+                                                 type="button"
+                                                 onClick={() => {
+                                                   triggerConfirm(
+                                                     "Save Bonus Score",
+                                                     `Are you sure you want to award ${currentBonus} bonus MVP points to player "${player.name}"?`,
+                                                     () => {
+                                                       updatePlayerScore(player.id, 'bonus', currentBonus);
+                                                       setDraftScores(prev => {
+                                                         const copy = { ...prev };
+                                                         delete copy[bonusKey];
+                                                         return copy;
+                                                       });
+                                                     }
+                                                   );
+                                                 }}
+                                                 className="p-1 px-2 text-[9px] font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700 transition"
+                                               >
+                                                 Save
+                                               </button>
+                                               <button
+                                                 type="button"
+                                                 onClick={() => {
+                                                   setDraftScores(prev => {
+                                                     const copy = { ...prev };
+                                                     delete copy[bonusKey];
+                                                     return copy;
+                                                   });
+                                                 }}
+                                                 className="p-1 bg-white text-slate-500 rounded hover:bg-slate-100 transition"
+                                               >
+                                                 <Undo size={10} />
+                                               </button>
+                                             </div>
+                                           )}
+                                         </div>
+                                      </div>
+                                      <input 
+                                        type="range" min="0" max="100" 
+                                        value={currentBonus} 
+                                        onChange={(e) => setDraftScores(prev => ({ ...prev, [bonusKey]: parseInt(e.target.value, 10) }))}
+                                        className="w-full h-1 appearance-none cursor-pointer bg-amber-200 mt-2 rounded-lg"
+                                      />
+                                    </div>
+                                  );
+                                })()}
+                                
+                                {/* Regular game MVP inputs */}
+                                {filteredMvpGames.length === 0 ? (
+                                  <div className="bg-slate-50 p-4 rounded-xl text-center text-slate-400 text-xs italic border border-dashed border-slate-200 flex items-center justify-center min-h-[110px]">
+                                    No games designated for MVP scoring.
+                                  </div>
+                                ) : (
+                                  filteredMvpGames.map(g => {
+                                    const mvpGameKey = `player-${player.id}-${g.id}`;
+                                    const savedMvpVal = player.scores[g.id] || 0;
+                                    const currentMvpVal = mvpGameKey in draftScores ? draftScores[mvpGameKey] : savedMvpVal;
+                                    const isDirty = currentMvpVal !== savedMvpVal;
+        
+                                    return (
+                                       <div key={g.id} className="bg-slate-50/70 p-4 rounded-xl border border-slate-100 flex flex-col justify-between min-h-[110px]">
+                                         <div className="flex justify-between items-center mb-1 font-sans">
+                                            <span className="text-xs font-semibold text-slate-700 truncate mr-2 animate-in" title={g.name}>{g.name}</span>
+                                            <div className="flex items-center gap-1.5">
+                                              <AnimatedScoreInput
+                                                value={currentMvpVal}
+                                                max={g.maxPoints}
+                                                onChange={(val) => setDraftScores(prev => ({ ...prev, [mvpGameKey]: val }))}
+                                                className="w-12"
+                                                activeColor="amber"
+                                              />
+        
+                                              {isDirty && (
+                                                <div className="flex gap-1 animate-in zoom-in-95">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      triggerConfirm(
+                                                        "Save Player Challenge Score",
+                                                        `Are you sure you want to record ${currentMvpVal} MVP points for player "${player.name}" in game "${g.name}"?`,
+                                                        () => {
+                                                          updatePlayerScore(player.id, g.id, currentMvpVal);
+                                                          setDraftScores(prev => {
+                                                            const copy = { ...prev };
+                                                            delete copy[mvpGameKey];
+                                                            return copy;
+                                                          });
+                                                        }
+                                                      );
+                                                    }}
+                                                    className="p-1 px-2 text-[9px] font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700 transition"
+                                                  >
+                                                    Save
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      setDraftScores(prev => {
+                                                        const copy = { ...prev };
+                                                        delete copy[mvpGameKey];
+                                                        return copy;
+                                                      });
+                                                    }}
+                                                    className="p-1 bg-white text-slate-550 rounded hover:bg-slate-100 transition"
+                                                  >
+                                                    <Undo size={10} />
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+                                         </div>
+                                         <input 
+                                           type="range" min="0" max={g.maxPoints} 
+                                           value={currentMvpVal} 
+                                           onChange={(e) => setDraftScores(prev => ({ ...prev, [mvpGameKey]: parseInt(e.target.value, 10) }))}
+                                           className="w-full h-1 appearance-none cursor-pointer bg-slate-200 mt-2 rounded-lg"
+                                         />
+                                       </div>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
